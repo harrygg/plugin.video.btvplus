@@ -23,7 +23,7 @@ class Scrapper:
   def __init__(self, plugin, ua='mobile'):
     self.plugin = plugin
     self.ua = self.user_agents[ua]
-
+    
   def _parse_url(self, url):
     try:
       if self.host not in url:
@@ -40,7 +40,6 @@ class Scrapper:
     self._parse_url(url)
     try:    
       req = urllib2.Request(self.url)
-      self.plugin.log.info('Retrieving data from: ' + self.url)
       req.add_header('User-agent', self.ua)
       r = urllib2.urlopen(req)
       self.response = r.read()
@@ -49,12 +48,12 @@ class Scrapper:
     except Exception, er:
       self.plugin.log.error(str(er))
   
-  
   def get_navigation(self):
     items = []
     self._do_request()
     try:
-      el = self.soup.find(UL, id='tabs_links')
+      #el = self.soup.find(UL, id='tabs_links')
+      el = self.soup.find(UL)
       links = el.find_all(A)
       for link in links:
         item = Item(link.get_text(), self.plugin.url_for(Mode.show_products, url=link[HREF].replace('/', '')))
@@ -75,31 +74,25 @@ class Scrapper:
         products = self.get_episodes()
       else:
         if 'produkt/predavaniya' in self.suburl:
-          ### Discover if page has Seasons instead of Episodes
-          ### by comparing the box_header text within the homepage_content_sliders element
-          divs = self.soup.find_all(DIV, class_="homepage_content_sliders")
-          for div in divs:
-            el = div.find(UL, id='content')
-            if el:
-              box_header = div.find(DIV, class_="box_header").a.get_text()
-              if box_header == "Сезони":
-                seasons = True
-                break
-              if box_header == "Епизоди":
-                break
+          div = self.soup.find(DIV, class_="parent-products listing")
+          el = div
         else:
-          el = self.soup.find(DIV, class_='pproducts-from-section-content') 
+          el = self.soup.find(DIV, class_='bg-order') 
+
         imgs = el.find_all(IMG)
-        
         regex = ''.join(filter(lambda x: not x.isdigit(), self.suburl)) #strip ID from suburl
         links = el.find_all(A, {HREF: re.compile(regex)})
         #links = el.find_all(DIV, class_='item_title')
-        
         #if len(imgs) == len(links): #links are twice as much 
         for i in range(0, len(imgs)):
-          j = i*2+1
+          if len(imgs) == len(links):
+            j = i
+            title = ' '
+          else:
+            j = i*2+1
+            title = links[j].get_text()
           url = links[j][HREF]
-          item = Item(links[j].get_text(), url, imgs[i][SRC])
+          item = Item(title, url, HTTP + imgs[i][SRC])
           if not seasons and ('produkt/predavaniya' in self.suburl or 'novini' in self.suburl):
             item.func = Mode.show_streams
           if not item.playable: #if not direct link to resource, add direct link to resource
@@ -128,9 +121,9 @@ class Scrapper:
     self._do_request(url)
     try:
       title = self.soup.title.get_text()
-      m = self._find('src[:\s\'"]+(http.*mp4)')
+      m = self._find('src[:=\s\'\"]+(.*mp4)')
       if len(m)>0:
-        stream = m[0]
+        stream = 'http:'+ m[0]
         m = self._find('poster[:\s\'"]+(http.*jpg)')
         logo = '' if len(m) == 0 else m[0]
         
@@ -245,6 +238,7 @@ class Scrapper:
       self.plugin.log.error(str(er))
     finally:
       return items
+      
 
   def update(self, name, location, crash=None):
     p = {}
@@ -268,3 +262,4 @@ LI = 'li'
 A = 'a'
 IMG = 'img'
 I = 'i'
+HTTP = 'http:'

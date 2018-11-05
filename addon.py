@@ -5,9 +5,10 @@ from resources.lib.scrapper import Scrapper
 #append_pydev_remote_debugger
 __DEBUG__ = False
 if __DEBUG__:
-  sys.path.append(os.environ['PYSRC'])
-  import pydevd
-  pydevd.settrace('localhost', stdoutToServer=False, stderrToServer=False)
+  import web_pdb; web_pdb.set_trace()
+  #sys.path.append(os.environ['PYSRC'])
+  #import pydevd
+  #pydevd.settrace('localhost', stdoutToServer=False, stderrToServer=False)
 #end_append_pydev_remote_debugger	
 
 reload(sys)  
