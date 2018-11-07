@@ -56,8 +56,10 @@ class Scrapper:
       el = self.soup.find(UL)
       links = el.find_all(A)
       for link in links:
-        item = Item(link.get_text(), self.plugin.url_for(Mode.show_products, url=link[HREF].replace('/', '')))
-        items.append(item)
+        text = link.get_text()
+        if 'Програма' not in text:
+          item = Item(text, self.plugin.url_for(Mode.show_products, url=link[HREF].replace('/', '')))
+          items.append(item)
     except Exception, er:
       self.plugin.log.error(str(er))
     finally:
@@ -68,16 +70,18 @@ class Scrapper:
     seasons = False
     self._do_request(url)
     try:
+      self.plugin.log.error(str(self.suburl))
       if 'live' in self.suburl:
         products = self.get_live_products()
       elif 'produkt/seriali' in self.suburl:
         products = self.get_episodes()
       else:
         if 'produkt/predavaniya' in self.suburl:
-          div = self.soup.find(DIV, class_="parent-products listing")
-          el = div
+          el = self.soup.find(DIV, class_="parent-products listing")
         else:
-          el = self.soup.find(DIV, class_='bg-order') 
+          el = self.soup.find(DIV, class_='bg-order')
+          if not el:
+            el = self.soup.find(DIV, class_='news-sl')
 
         imgs = el.find_all(IMG)
         regex = ''.join(filter(lambda x: not x.isdigit(), self.suburl)) #strip ID from suburl
@@ -147,14 +151,12 @@ class Scrapper:
   def get_live_products(self):
     streams = []
     try:
-      rtmp_url = self._get_rtmp_args()
-      title = '[B]bTV[/B] | ' + self._get_epg_event()
-      item = Item(title, rtmp_url, '', Mode.play)
-      streams.append(item)
-        
-      m3u_url = self._get_m3u_args()
-      item = Item(title, m3u_url, '', Mode.play)
-      streams.append(item)
+      for i in range (3, 5):
+        url = base64.b64decode('aHR0cHM6Ly9lbiVzLnNvZi5idHYuYmcvYWxwaGEvYWxwaGEvcGxheWxpc3QubTN1OA==') % i
+        self.plugin.log.error(str(url))
+        title = '[B]bTV[/B]'# + self._get_epg_event()
+        item = Item(title, url, '', Mode.play)
+        streams.append(item)
     except Exception, er:
       self.plugin.log.error(str(er))
     finally: 
@@ -217,21 +219,34 @@ class Scrapper:
       return 'gold' if n % 2 == 0 else 'brown' 
     try:
       seasons = self.soup.find_all(DIV, class_='season_wrapper')
-      n = 0
-      for season in seasons:
-        n += 1
-        series = season.find_all(SPAN, class_='episode_title')
-        expires = season.find_all(SPAN, class_='episode_expire')
-        try: image = season.find(DIV, class_='season_image').img[SRC]
-        except: image = ''
-        if len(series) == len(expires):
-          for i in range(0, len(series)):
-            url = series[i].a[HREF]
-            color = 'red' if 'неактивен' in expires[i].get_text() else 'green'
-            expires_text = '[COLOR %s]%s[/COLOR]' % (color, expires[i].get_text())            
-            title = "%s | %s" % (series[i].a.get_text().lstrip().rstrip(), expires_text)
-            if len(seasons) > 1:
-              title = '[COLOR %s]%s %s[/COLOR] | %s' % (self.plugin.get_string(32014), _random_color(n), n, title)
+      if len(seasons) > 0:
+        n = 0
+        for season in seasons:
+          n += 1
+          series = season.find_all(SPAN, class_='episode_title')
+          expires = season.find_all(SPAN, class_='episode_expire')
+          try: image = season.find(DIV, class_='season_image').img[SRC]
+          except: image = ''
+          if len(series) == len(expires):
+            for i in range(0, len(series)):
+              url = series[i].a[HREF]
+              color = 'red' if 'неактивен' in expires[i].get_text() else 'green'
+              expires_text = '[COLOR %s]%s[/COLOR]' % (color, expires[i].get_text())            
+              title = "%s | %s" % (series[i].a.get_text().lstrip().rstrip(), expires_text)
+              if len(seasons) > 1:
+                title = '[COLOR %s]%s %s[/COLOR] | %s' % (self.plugin.get_string(32014), _random_color(n), n, title)
+              item = Item(title, self.plugin.url_for(Mode.show_streams, url=url), image, Mode.show_streams)
+              items.append(item)
+      else: # There are no seasons
+        wrapper = self.soup.find(DIV, class_='parent-products')
+        if wrapper:
+          series  = wrapper.find_all(LI)
+          self.plugin.log.error("series: "+ str(len(series)))
+          for serie in series:
+            link = serie.find_all(A)[1]
+            title = link.get_text()
+            url = link[HREF]
+            image = serie.img[SRC]
             item = Item(title, self.plugin.url_for(Mode.show_streams, url=url), image, Mode.show_streams)
             items.append(item)
     except Exception, er:
