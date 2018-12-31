@@ -1,4 +1,4 @@
-﻿import sys, re, base64, urllib2, urlparse, xbmc
+﻿import sys, re, base64, urllib2, urlparse, xbmc, requests, xbmcaddon, time
 from bs4 import BeautifulSoup
 from item import Item
 from mode import Mode
@@ -14,6 +14,7 @@ class Scrapper:
   suburl = None
   url = None
   ua = None
+  addon = xbmcaddon.Addon()
   user_agents = { 
     'pc': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36', 
     'mobile': 'Dalvik/2.1.0 (Linux; U; Android 5.0;'
@@ -150,17 +151,35 @@ class Scrapper:
 
   def get_live_products(self):
     streams = []
+    headers = {}
+    s = requests.session()
+
     try:
-      for i in range (3, 5):
-        url = base64.b64decode('aHR0cHM6Ly9lbiVzLnNvZi5idHYuYmcvYWxwaGEvYWxwaGEvcGxheWxpc3QubTN1OA==') % i
-        self.plugin.log.error(str(url))
-        title = '[B]bTV[/B]'# + self._get_epg_event()
-        item = Item(title, url, '', Mode.play)
+      body = { "username": self.addon.getSetting("btv_username"), "password": self.addon.getSetting("btv_password") }
+      headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+      r = s.post(base64.b64decode('aHR0cHM6Ly9idHZwbHVzLmJnL2xiaW4vc29jaWFsL2xvZ2luLnBocA=='), headers=headers, data=body)
+      if r.json()["resp"] != "success":
+        self.plugin.log.error("Unable to login to btv.bg")
+        return None
+        
+      url = base64.b64decode('aHR0cHM6Ly9idHZwbHVzLmJnL2xiaW4vdjMvYnR2cGx1cy9wbGF5ZXJfY29uZmlnLnBocD9tZWRpYV9pZD0yMTEwMzgzNjI1Jl89JXM=')
+      url = url % str(time.time() * 100)
+      r = s.get(url, headers=headers)
+      xbmc.log(r.text, 4)
+      m = re.compile('(http.*\.m3u.*?)[\s\'"\\\\]+').findall(r.text)
+      if len(m) > 0:
+        stream = m[0].replace('\/', '/')
+        item = Item("[B]bTV[/B]", stream, '', Mode.play)
         streams.append(item)
-    except Exception, er:
-      self.plugin.log.error(str(er))
-    finally: 
-      return streams
+      else:
+        xbmc.log("No match for playlist url found", xbmc.LOGNOTICE)
+      
+      #xbmc.log('Намерени %s съвпадения в %s' % (len(m), url), xbmc.LOGNOTICE)
+      xbmc.log('Извлечен видео поток %s' % stream, xbmc.LOGNOTICE)
+      
+    except Exception as er:
+      xbmc.log(str(er), 4)
+    return streams
   
   def _find(self, regex):
     return re.compile(regex).findall(self.response)

@@ -25,6 +25,7 @@ def index():
 @plugin.route('/products/<url>/')
 def show_products(url):
 	if 'live' in url:
+		#play(get_live_products(url))
 		products = get_live_products(url)
 	else:
 		products = get_products(url)
