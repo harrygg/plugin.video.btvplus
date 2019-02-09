@@ -59,7 +59,11 @@ class Scrapper:
       for link in links:
         text = link.get_text()
         if 'Програма' not in text:
-          item = Item(text, self.plugin.url_for(Mode.show_products, url=link[HREF].replace('/', '')))
+          url = link[HREF].replace('/', '')
+          if 'novini' in url:
+            # search for all news videos
+            url = '/search/?type=101' 
+          item = Item(text, self.plugin.url_for(Mode.show_products, url=url))
           items.append(item)
     except Exception, er:
       self.plugin.log.error(str(er))
@@ -70,46 +74,58 @@ class Scrapper:
     products = []
     seasons = False
     self._do_request(url)
-    try:
-      self.plugin.log.error(str(self.suburl))
-      if 'live' in self.suburl:
-        products = self.get_live_products()
-      elif 'produkt/seriali' in self.suburl:
-        products = self.get_episodes()
+    #try:
+    self.plugin.log.error(str(self.suburl))
+    if 'live' in self.suburl:
+      products = self.get_live_products()
+    elif 'produkt/seriali' in self.suburl:
+      products = self.get_episodes()
+    else:
+      if 'search' in self.suburl:
+        el = self.soup.find(DIV, class_="search-list-wrapper")
       else:
-        if 'produkt/predavaniya' in self.suburl:
-          el = self.soup.find(DIV, class_="parent-products listing")
+        el = self.soup.find(DIV, class_='bg-order')
+        if not el:
+          el = self.soup.find(DIV, class_='news-sl')
+
+      imgs = el.find_all(IMG)
+      #self.plugin.log.error("imgs %s" % len(imgs))
+      #regex = ''.join(filter(lambda x: not x.isdigit(), self.suburl)) #strip ID from suburl
+      #self.plugin.log.error("regex %s" % regex)
+      links = el.find_all(A) #, {HREF: re.compile(regex)})
+      #self.plugin.log.error("links %s" % len(links))
+      locks = el.find_all('span', class_='icon-locker')
+      #self.plugin.log.error("locks %s" % len(locks))
+      
+      # links are usually twice as much as the images. 
+      # locked content is not viewable, so we are ignoring it
+      for i in range(0, len(imgs) - len(locks)):
+        if len(imgs) == len(links):
+          j = i
+          title = ' '
+          id = re.compile("(\d+)").findall(links[i][HREF])[0]
+          self.plugin.log.debug("extracted id %s" % id)
+          url = '/search/?id=%s' % id
+          self.plugin.log.error("generated link: %s" % self.host + url)
         else:
-          el = self.soup.find(DIV, class_='bg-order')
-          if not el:
-            el = self.soup.find(DIV, class_='news-sl')
+          j = i*2+1
+          title = links[j].get_text()
+          url = self.host + links[j][HREF]
+          #self.plugin.log.error("url %s" % url)
+        item = Item(title, url, HTTP + imgs[i][SRC])
+        if not seasons and ('search' in self.suburl or 'novini' in self.suburl):
+          item.func = Mode.show_streams
+        self.plugin.log.error("item.func: %s" % item.func)
+        if not item.playable: #if not direct link to resource, add direct link to resource
+          item.url = self.plugin.url_for(item.func, url=item.url)
+        products.append(item)
+      #pagination:
+      #self._add_pagination(products)
 
-        imgs = el.find_all(IMG)
-        regex = ''.join(filter(lambda x: not x.isdigit(), self.suburl)) #strip ID from suburl
-        links = el.find_all(A, {HREF: re.compile(regex)})
-        #links = el.find_all(DIV, class_='item_title')
-        #if len(imgs) == len(links): #links are twice as much 
-        for i in range(0, len(imgs)):
-          if len(imgs) == len(links):
-            j = i
-            title = ' '
-          else:
-            j = i*2+1
-            title = links[j].get_text()
-          url = links[j][HREF]
-          item = Item(title, url, HTTP + imgs[i][SRC])
-          if not seasons and ('produkt/predavaniya' in self.suburl or 'novini' in self.suburl):
-            item.func = Mode.show_streams
-          if not item.playable: #if not direct link to resource, add direct link to resource
-            item.url = self.plugin.url_for(item.func, url=item.url)
-          products.append(item)
-        #pagination:
-        self._add_pagination(products)
-
-    except Exception, er:
-      self.plugin.log.error(str(er))
-    finally:
-      return products
+    #except Exception, er:
+    #  self.plugin.log.error(str(er))
+    #finally:
+    return products
 
 
   def _add_pagination(self, products):
