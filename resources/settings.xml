@@ -5,5 +5,6 @@
     <setting label="Потребител" id="btv_username" type="text" />
     <setting label="Парола" id="btv_password" type="text" option="hidden" />
     <setting type="sep" />
+    <setting label="Разширен журнал (Дебъг)" type="bool"   id="debug" default="false"/>
 	</category>
 </settings>
