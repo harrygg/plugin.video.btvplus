@@ -31,7 +31,11 @@ def get_products(url):
     id = re.compile('\/(\d+)+\/').findall(links[i]['href'])[0]
     log("Extracted product id: %s" % id, 0)
     # Change url to load episodes from the Search url
-    item = {"url": 'search/?id=' + id, "logo": "https://" + imgs[i]['src']}
+    if not imgs[i]["src"].startswith("http"):
+      logoSrc = 'https:' + imgs[i]['src']
+    else:
+      logoSrc = imgs[i]['src']
+    item = {"url": 'search/?id=' + id, "logo": logoSrc}
     products.append(item)
 
   return products
@@ -183,7 +187,7 @@ elif action == 'show_episodes':
 elif action == 'play_stream':
   stream = get_stream(url)["stream"]
   log('Extracted stream %s ' % stream, 0)
-  add_listitem_resolved_url('Video', stream)
+  add_listitem_resolved_url(title, stream)
 
   
 elif action == 'play_live':
