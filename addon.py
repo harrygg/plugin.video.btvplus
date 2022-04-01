@@ -129,20 +129,23 @@ def get_stream(url):
 
 
 def update(name, location, crash=None):
-  lu = settings.last_update
-  day = time.strftime("%d")
-  if lu == "" or lu != day:
-    import ga
-    settings.last_update = day
-    p = {}
-    p['an'] = get_addon_name()
-    p['av'] = get_addon_version()
-    p['ec'] = 'Addon actions'
-    p['ea'] = name
-    p['ev'] = '1'
-    p['ul'] = get_kodi_language()
-    p['cd'] = location
-    ga.ga('UA-79422131-4').update(p, crash)
+  try:
+      lu = settings.last_update
+      day = time.strftime("%d")
+      if lu == "" or lu != day:
+        import ga
+        settings.last_update = day
+        p = {}
+        p['an'] = get_addon_name()
+        p['av'] = get_addon_version()
+        p['ec'] = 'Addon actions'
+        p['ea'] = name
+        p['ev'] = '1'
+        p['ul'] = get_kodi_language()
+        p['cd'] = location
+        ga.ga('UA-79422131-4').update(p, crash)
+  except:
+    pass
     
 params = get_params()
 action = params.get("action")
