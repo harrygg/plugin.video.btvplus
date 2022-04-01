@@ -3,11 +3,12 @@ import os
 import re
 import time
 import base64
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import xbmcgui
 import requests
 from bs4 import BeautifulSoup
 from kodibgcommon.utils import *
+import ssl
 
 
 def get_products(url):
@@ -17,8 +18,9 @@ def get_products(url):
   '''
   products = []
   log ("GET " + host + url, 2)
-  req = urllib2.Request(host + url)
-  text = urllib2.urlopen(req).read()
+  ssl._create_default_https_context = ssl._create_unverified_context
+  req = urllib.request.Request(host + url)
+  text = urllib.request.urlopen(req).read().decode('utf-8')
   soup = BeautifulSoup(text, 'html5lib')
   el = soup.find("div", class_='bg-order')
 
@@ -28,14 +30,17 @@ def get_products(url):
   log("Number of a elements found: %s" % len(links), 0)
 
   for i in range(0, len(imgs)):
-    id = re.compile('\/(\d+)+\/').findall(links[i]['href'])[0]
-    log("Extracted product id: %s" % id, 0)
+    id = re.compile('\/(\d+)+\/').findall(links[i]['href'])
+    if len(id) == 0:
+      log("No href found!", 4)
+      continue
+    log("Extracted product id: %s" % id[0], 0)
     # Change url to load episodes from the Search url
     if not imgs[i]["src"].startswith("http"):
       logoSrc = 'https:' + imgs[i]['src']
     else:
       logoSrc = imgs[i]['src']
-    item = {"url": 'search/?id=' + id, "logo": logoSrc}
+    item = {"url": 'search/?id=' + id[0], "logo": logoSrc}
     products.append(item)
 
   return products
@@ -46,9 +51,10 @@ def get_episodes(url):
   '''
   episodes = []  
   log ("GET " + host + url, 2)
-  req = urllib2.Request(host + url)
+  ssl._create_default_https_context = ssl._create_unverified_context
+  req = urllib.request.Request(host + url)
   req.add_header('User-agent', user_agent)
-  text = urllib2.urlopen(req).read()
+  text = urllib.request.urlopen(req).read().decode('utf-8')
   soup = BeautifulSoup(text, 'html5lib')
   el = soup.find("div", class_="search-list")
   
@@ -62,13 +68,13 @@ def get_episodes(url):
   # locked content is not viewable, so we are ignoring it
   for i in range(0, len(imgs) - len(locks)):
     j = i * 2 + 1
-    title = links[j].get_text().encode('utf-8')
+    title = links[j].get_text()
     item = {"title": title, "url": links[j]['href'], "logo": "https://" + imgs[i]['src']}
     episodes.append(item)
     
   for i in range(len(imgs) - len(locks), len(imgs)):
     j = i * 2 + 1
-    title = links[j].get_text().encode('utf-8')
+    title = links[j].get_text()
     item = {"title": "[COLOR red]"+title+"[/COLOR]", "url": None, "logo": "https://" + imgs[i]['src']}
     episodes.append(item)
 
@@ -97,9 +103,10 @@ def show_episodes(episodes):
 
 def get_stream(url):
 
-  log ("GET " + host + url, 0)
-  req = urllib2.Request(host + url)
-  text = urllib2.urlopen(req).read()
+  log ("GET " + host2 + url, 0)
+  ssl._create_default_https_context = ssl._create_unverified_context
+  req = urllib.request.Request(host2 + url)
+  text = urllib.request.urlopen(req).read().decode('utf-8')
   soup = BeautifulSoup(text, 'html5lib')
   item = {"stream": None, "logo": None}
   
@@ -144,7 +151,8 @@ url = params.get("url")
 title = params.get("title")
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36'
 view_mode = 500
-host = base64.b64decode("aHR0cHM6Ly9idHZwbHVzLmJnLw==")
+host = base64.b64decode("aHR0cHM6Ly9idHZwbHVzLmJnLw==").decode('utf-8')
+host2 = base64.b64decode("aHR0cHM6Ly9idHZwbHVzLmJn").decode('utf-8')
 next_page_title = 'Следваща страница'
 
 if action == None:
@@ -205,11 +213,11 @@ elif action == 'play_live':
   if r.json()["resp"] != "success":
     log("Unable to login to btv.bg", 4)
   else:
-    url = base64.b64decode('aHR0cHM6Ly9idHZwbHVzLmJnL2xiaW4vdjMvYnR2cGx1cy9wbGF5ZXJfY29uZmlnLnBocD9tZWRpYV9pZD0yMTEwMzgzNjI1Jl89JXM=')
+    url = base64.b64decode('aHR0cHM6Ly9idHZwbHVzLmJnL2xiaW4vdjMvYnR2cGx1cy9wbGF5ZXJfY29uZmlnLnBocD9tZWRpYV9pZD0yMTEwMzgzNjI1Jl89JXM=').decode('utf-8')
     log(url, 0)
     url = url % str(time.time() * 100)
     r = s.get(url, headers=headers)
-    m = re.compile('(http.*\.m3u.*?)[\s\'"\\\\]+').findall(r.text)
+    m = re.compile('(http.*\.m3u.*?)[\s\'"\\\\]+[\s\'"\\\\]+').findall(r.text)
     if len(m) > 0:
       stream = m[0].replace('\/', '/')
       if not stream.startswith('http'):
@@ -226,7 +234,7 @@ elif action == 'search':
   keyboard.doModal()
   searchText = ''
   if keyboard.isConfirmed():
-    searchText = urllib.quote_plus(keyboard.getText())
+    searchText = urllib.parse.quote_plus(keyboard.getText())
     if searchText != '':
       show_episodes(get_episodes('search/?q=%s' % searchText))
         
