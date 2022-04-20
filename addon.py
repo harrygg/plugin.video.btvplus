@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
-import os
 import re
 import time
 import base64
 import urllib.request, urllib.error, urllib.parse
-import xbmcgui
 import requests
 from bs4 import BeautifulSoup
+from kodibgcommon.settings import settings
+from kodibgcommon.logging import log_info, log_error
 from kodibgcommon.utils import *
+from kodibgcommon.notifications import notify_error
 import ssl
 
 
@@ -17,7 +18,7 @@ def get_products(url):
   Products have no titles, only icons
   '''
   products = []
-  log ("GET " + host + url, 2)
+  log_info("GET " + host + url)
   ssl._create_default_https_context = ssl._create_unverified_context
   req = urllib.request.Request(host + url)
   text = urllib.request.urlopen(req).read().decode('utf-8')
@@ -25,16 +26,16 @@ def get_products(url):
   el = soup.find("div", class_='bg-order')
 
   imgs = el.find_all('img')
-  log("Number of img elements found: %s" % len(imgs), 0)
+  log_info("Number of img elements found: %s" % len(imgs))
   links = el.find_all('a')
-  log("Number of a elements found: %s" % len(links), 0)
+  log_info("Number of a elements found: %s" % len(links))
 
   for i in range(0, len(imgs)):
     id = re.compile('\/(\d+)+\/').findall(links[i]['href'])
     if len(id) == 0:
-      log("No href found!", 4)
+      log_error("No href found!")
       continue
-    log("Extracted product id: %s" % id[0], 0)
+    log_info("Extracted product id: %s" % id[0])
     # Change url to load episodes from the Search url
     if not imgs[i]["src"].startswith("http"):
       logoSrc = 'https:' + imgs[i]['src']
@@ -50,7 +51,7 @@ def get_episodes(url):
   Get all episodes from the search page
   '''
   episodes = []  
-  log ("GET " + host + url, 2)
+  log_info("GET " + host + url)
   ssl._create_default_https_context = ssl._create_unverified_context
   req = urllib.request.Request(host + url)
   req.add_header('User-agent', user_agent)
@@ -59,9 +60,9 @@ def get_episodes(url):
   el = soup.find("div", class_="search-list")
   
   imgs = el.find_all('img')
-  log("imgs: %s" % len(imgs), 0)
+  log_info("imgs: %s" % len(imgs))
   links = el.find_all('a')
-  log("a: %s" % len(links), 0)
+  log_info("a: %s" % len(links))
   locks = el.find_all('span', class_='icon-locker')
   
   # links are usually twice as much as the images. 
@@ -86,7 +87,7 @@ def get_episodes(url):
       item = {"title": next_page_title, "url": href}
       episodes.append(item)
   except Exception as er:
-    log("Adding pagination failed %s" % er, 4)
+    log_error("Adding pagination failed %s" % er)
 
   return episodes  
 
@@ -103,7 +104,7 @@ def show_episodes(episodes):
 
 def get_stream(url):
 
-  log ("GET " + host2 + url, 0)
+  log_info("GET " + host2 + url)
   ssl._create_default_https_context = ssl._create_unverified_context
   req = urllib.request.Request(host2 + url)
   text = urllib.request.urlopen(req).read().decode('utf-8')
@@ -116,7 +117,7 @@ def get_stream(url):
     item["stream"] = m[0]
     if not item["stream"].startswith("http"):
       item["stream"] = 'https:' + item["stream"]
-    log("resolved stream: %s" % item["stream"], 0)
+    log_info("resolved stream: %s" % item["stream"])
  
     m = re.compile('poster[:\s\'"]+(http.*jpg)').findall(text)
     if len(m) > 0:
@@ -124,7 +125,7 @@ def get_stream(url):
       if not item["logo"].startswith("http"):
         item["logo"] = 'https:'+ item["logo"]
   else:
-    log("No streams found!", 4)
+    log_error("No streams found!")
   return item
 
 
@@ -133,7 +134,7 @@ def update(name, location, crash=None):
       lu = settings.last_update
       day = time.strftime("%d")
       if lu == "" or lu != day:
-        import ga
+        from ga import ga
         settings.last_update = day
         p = {}
         p['an'] = get_addon_name()
@@ -143,7 +144,7 @@ def update(name, location, crash=None):
         p['ev'] = '1'
         p['ul'] = get_kodi_language()
         p['cd'] = location
-        ga.ga('UA-79422131-4').update(p, crash)
+        ga('UA-79422131-4').update(p, crash)
   except:
     pass
     
@@ -183,7 +184,7 @@ if action == None:
 elif action == 'show_products':
 
   products = get_products(url)
-  log("Found %s products" % len(products), 0)
+  log_info("Found %s products" % len(products))
   
   for product in products:
     # Set empty title, as there are no titles only icons
@@ -197,7 +198,7 @@ elif action == 'show_episodes':
   
 elif action == 'play_stream':
   stream = get_stream(url)["stream"]
-  log('Extracted stream %s ' % stream, 0)
+  log_info('Extracted stream %s ' % stream)
   add_listitem_resolved_url(title, stream)
 
   
@@ -211,24 +212,25 @@ elif action == 'play_live':
   s = requests.session()
 
   r = s.post(base64.b64decode('aHR0cHM6Ly9idHZwbHVzLmJnL2xiaW4vc29jaWFsL2xvZ2luLnBocA=='), headers=headers, data=body)
-  log(r.text, 0)
+  log_info(r.text)
   
   if r.json()["resp"] != "success":
-    log("Unable to login to btv.bg", 4)
+    log_info("Unable to login to btv.bg")
   else:
     url = base64.b64decode('aHR0cHM6Ly9idHZwbHVzLmJnL2xiaW4vdjMvYnR2cGx1cy9wbGF5ZXJfY29uZmlnLnBocD9tZWRpYV9pZD0yMTEwMzgzNjI1Jl89JXM=').decode('utf-8')
-    log(url, 0)
+    log_info(url)
     url = url % str(time.time() * 100)
+    log_info("URL: %s" % url)
     r = s.get(url, headers=headers)
     m = re.compile('(http.*\.m3u.*?)[\s\'"\\\\]+[\s\'"\\\\]+').findall(r.text)
     if len(m) > 0:
       stream = m[0].replace('\/', '/')
       if not stream.startswith('http'):
         stream = 'https:' + stream
-      log('Извлечен видео поток %s' % stream, 2)  
+      log_info('Извлечен видео поток %s' % stream)  
       add_listitem_resolved_url('bTV на живо', stream)
     else:
-      log("No match for playlist url found", 4)
+      log_info("No match for playlist url found")
 
       
 elif action == 'search':
