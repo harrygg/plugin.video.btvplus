@@ -23,11 +23,12 @@ def get_products(url):
   req = urllib.request.Request(host + url)
   text = urllib.request.urlopen(req).read().decode('utf-8')
   soup = BeautifulSoup(text, 'html5lib')
-  el = soup.find("div", class_='bg-order')
+  el = soup.find("div", class_='order-listing-wrapper')
 
   imgs = el.find_all('img')
   log_info("Number of img elements found: %s" % len(imgs))
   links = el.find_all('a')
+  linktext = el.find_all('span', class_='title')
   log_info("Number of a elements found: %s" % len(links))
 
   for i in range(0, len(imgs)):
@@ -41,7 +42,8 @@ def get_products(url):
       logoSrc = 'https:' + imgs[i]['src']
     else:
       logoSrc = imgs[i]['src']
-    item = {"url": 'search/?id=' + id[0], "logo": logoSrc}
+    title = linktext[i].get_text()
+    item = {"title": title, "url": 'search/?id=' + id[0], "logo": logoSrc}
     products.append(item)
 
   return products
@@ -57,25 +59,23 @@ def get_episodes(url):
   req.add_header('User-agent', user_agent)
   text = urllib.request.urlopen(req).read().decode('utf-8')
   soup = BeautifulSoup(text, 'html5lib')
-  el = soup.find("div", class_="search-list")
+  el = soup.find("div", class_="search-page-wrapper")
   
   imgs = el.find_all('img')
   log_info("imgs: %s" % len(imgs))
   links = el.find_all('a')
   log_info("a: %s" % len(links))
   locks = el.find_all('span', class_='icon-locker')
+  linktext = el.find_all('span', class_='title')
   
-  # links are usually twice as much as the images. 
   # locked content is not viewable, so we are ignoring it
   for i in range(0, len(imgs) - len(locks)):
-    j = i * 2 + 1
-    title = links[j].get_text()
-    item = {"title": title, "url": links[j]['href'], "logo": "https://" + imgs[i]['src']}
+    title = linktext[i].get_text()
+    item = {"title": title, "url": links[i]['href'], "logo": "https://" + imgs[i]['src']}
     episodes.append(item)
     
   for i in range(len(imgs) - len(locks), len(imgs)):
-    j = i * 2 + 1
-    title = links[j].get_text()
+    title = linktext[i].get_text()
     item = {"title": "[COLOR red]"+title+"[/COLOR]", "url": None, "logo": "https://" + imgs[i]['src']}
     episodes.append(item)
 
@@ -112,16 +112,26 @@ def get_stream(url):
   item = {"stream": None, "logo": None}
   
   title = soup.title.get_text()
-  m = re.compile('src[:=\s\'\"]+(.*mp4)').findall(text)
+  m = re.compile('url[\s:]+\'(.*)\',').findall(text)
   if len(m) > 0:
-    item["stream"] = m[0]
+    url2 = m[0]
+    log_info("resolved stream1: %s" % url2)
+  else:
+    log_error("No url found!")
+    return
+  req2 = urllib.request.Request(host2 + url2)
+  text2 = urllib.request.urlopen(req2).read().decode('utf-8')
+  soup2 = BeautifulSoup(text2, 'html5lib')
+  m = re.compile('src[:=\s\'\"]+(.*mp4)').findall(text2)
+  if len(m) > 0:
+    item["stream"] = m[0].replace('\\', '')
     if not item["stream"].startswith("http"):
       item["stream"] = 'https:' + item["stream"]
-    log_info("resolved stream: %s" % item["stream"])
+    log_info("resolved stream2: %s" % item["stream"])
  
     m = re.compile('poster[:\s\'"]+(http.*jpg)').findall(text)
     if len(m) > 0:
-      item["logo"] = m[0]
+      item["logo"] = m[0].replace('\\', '')
       if not item["logo"].startswith("http"):
         item["logo"] = 'https:'+ item["logo"]
   else:
@@ -189,7 +199,7 @@ elif action == 'show_products':
   for product in products:
     # Set empty title, as there are no titles only icons
     url = make_url({"action":"show_episodes", "url": product["url"]})
-    add_listitem_folder('', url, iconImage=product["logo"], thumbnailImage=product["logo"])
+    add_listitem_folder(product["title"], url, iconImage=product["logo"], thumbnailImage=product["logo"])
 
   
 elif action == 'show_episodes':
