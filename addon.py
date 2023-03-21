@@ -122,7 +122,7 @@ def get_stream(url):
   req2 = urllib.request.Request(host2 + url2)
   text2 = urllib.request.urlopen(req2).read().decode('utf-8')
   soup2 = BeautifulSoup(text2, 'html5lib')
-  m = re.compile('src[:=\s\'\"]+(.*mp4)').findall(text2)
+  m = re.compile('src[:=\s\'\"]+(.*m3u8)').findall(text2)
   if len(m) > 0:
     item["stream"] = m[0].replace('\\', '')
     if not item["stream"].startswith("http"):
