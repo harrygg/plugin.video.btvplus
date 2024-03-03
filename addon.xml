@@ -14,9 +14,9 @@
   <extension point="xbmc.addon.metadata">
     <platform>all</platform>
     <language>bg</language>
-    <summary lang="en">Addon for watching video content from btvplus.bg</summary>
-	<summary lang="bg">Приставка за гледане на видео съдържание от сайта btvplus.bg</summary>
-    <description lang="en">Addon for watching video content from btvplus.bg</description>
+    <summary lang="en">This Kodi Add-on provides a minimal interface for btvplus.bg</summary>
+	<summary lang="bg">Kodi приставка за гледане на видео съдържание от сайта btvplus.bg</summary>
+    <description lang="en">This Kodi Add-on provides a minimal interface for btvplus.bg</description>
     <description lang="bg">Приставка за гледане на видео съдържание от сайта btvplus.bg</description>
     <forum>https://kodibg.org/forum/thread-145.html</forum>
     <website>https://github.com/harrygg/plugin.video.btvplus</website>
